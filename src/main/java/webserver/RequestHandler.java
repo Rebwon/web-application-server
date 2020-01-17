@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HandlerMapping;
 import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -37,33 +38,40 @@ public class RequestHandler extends Thread {
             log.debug("request line : {}", line);
 
             String[] token = line.split(" ");
-            String url = HandlerMapping.getURL(token);
-            if(url.contains("?")){
-                int index = url.indexOf("?");
-                String requestPath = url.substring(0, index);
-                if("/user/create".equals(requestPath)) {
-                    String queryString = url.substring(index+1);
-
-                    Map<String, String> params = HttpRequestUtils.parseQueryString(queryString);
-
-                    User user = new User(params.get("userId"), params.get("password"),
-                            params.get("name"), params.get("email"));
-                    log.debug("user entity : {}", user.toString());
-                }
-            }
+            int contentLength = 0;
 
             while(!line.equals("")){
                 line = br.readLine();
                 log.debug("header: {}", line);
+
+                if(line.contains("Content-Length")){
+                    contentLength = getContentLength(line);
+                }
             }
 
-            DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
-            response200Header(dos, body.length);
-            responseBody(dos, body);
+            String url = HandlerMapping.getURL(token);
+            if("/user/create".equals(url)){
+                String body = IOUtils.readData(br, contentLength);
+
+                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
+
+                User user = new User(params.get("userId"), params.get("password"),
+                        params.get("name"), params.get("email"));
+                log.debug("user entity : {}", user.toString());
+            } else {
+                DataOutputStream dos = new DataOutputStream(out);
+                byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+                response200Header(dos, body.length);
+                responseBody(dos, body);
+            }
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private int getContentLength(String line){
+        String[] header = line.split(":");
+        return Integer.parseInt(header[1].trim());
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
