@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 
 import java.util.Map;
 
+import model.User;
 import org.junit.Test;
 
 import util.HttpRequestUtils.Pair;
@@ -21,6 +22,16 @@ public class HttpRequestUtilsTest {
         parameters = HttpRequestUtils.parseQueryString(queryString);
         assertThat(parameters.get("userId"), is("javajigi"));
         assertThat(parameters.get("password"), is("password2"));
+    }
+
+    @Test
+    public void form_login() {
+        String queryString = "userId=rebwon&password=1234&name=rebwon&email=msolo021015@naver.com";
+        Map<String, String> parameters = HttpRequestUtils.parseQueryString(queryString);
+        assertThat(parameters.get("userId"), is("rebwon"));
+        assertThat(parameters.get("password"), is("1234"));
+        assertThat(parameters.get("name"), is("rebwon"));
+        assertThat(parameters.get("email"), is("msolo021015@naver.com"));
     }
 
     @Test

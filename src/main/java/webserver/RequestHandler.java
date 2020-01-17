@@ -3,10 +3,13 @@ package webserver;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.Map;
 
+import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HandlerMapping;
+import util.HttpRequestUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -27,13 +30,27 @@ public class RequestHandler extends Thread {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
             BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
             String line = br.readLine();    // 요청의 첫째 줄을 읽어온다.
-            log.debug("request line : {}", line);
-
             if(line == null){
                 return;
             }
 
-            String url = HandlerMapping.getURL(line);
+            log.debug("request line : {}", line);
+
+            String[] token = line.split(" ");
+            String url = HandlerMapping.getURL(token);
+            if(url.contains("?")){
+                int index = url.indexOf("?");
+                String requestPath = url.substring(0, index);
+                if("/user/create".equals(requestPath)) {
+                    String queryString = url.substring(index+1);
+
+                    Map<String, String> params = HttpRequestUtils.parseQueryString(queryString);
+
+                    User user = new User(params.get("userId"), params.get("password"),
+                            params.get("name"), params.get("email"));
+                    log.debug("user entity : {}", user.toString());
+                }
+            }
 
             while(!line.equals("")){
                 line = br.readLine();
