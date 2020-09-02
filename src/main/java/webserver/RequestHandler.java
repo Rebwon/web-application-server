@@ -1,19 +1,22 @@
 package webserver;
 
+import db.DataBase;
 import java.io.*;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Map;
 
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import util.HandlerMapping;
+import util.RequestHeaderExtractor;
 import util.HttpRequestUtils;
 import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
+    private static final String INDEX = "/index.html";
 
     private Socket connection;
 
@@ -25,12 +28,10 @@ public class RequestHandler extends Thread {
         log.debug("New Client Connect! Connected IP : {}, Port : {}", connection.getInetAddress(),
                 connection.getPort());
 
-        // connection.getInputStream()을 통해 HTTP 요청을 가져온다.
-        // connection.getOutputStream()을 통해 HTTP 응답 헤더를 보낸다.
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
-            BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
-            String line = br.readLine();    // 요청의 첫째 줄을 읽어온다.
+            BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            String line = br.readLine();
             if(line == null){
                 return;
             }
@@ -49,7 +50,8 @@ public class RequestHandler extends Thread {
                 }
             }
 
-            String url = HandlerMapping.getURL(token);
+            String url = RequestHeaderExtractor.getURL(token);
+            DataOutputStream dos = new DataOutputStream(out);
             if("/user/create".equals(url)){
                 String body = IOUtils.readData(br, contentLength);
 
@@ -58,8 +60,9 @@ public class RequestHandler extends Thread {
                 User user = new User(params.get("userId"), params.get("password"),
                         params.get("name"), params.get("email"));
                 log.debug("user entity : {}", user.toString());
+                DataBase.addUser(user);
+                response302Header(dos, INDEX);
             } else {
-                DataOutputStream dos = new DataOutputStream(out);
                 byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
                 response200Header(dos, body.length);
                 responseBody(dos, body);
@@ -72,6 +75,16 @@ public class RequestHandler extends Thread {
     private int getContentLength(String line){
         String[] header = line.split(":");
         return Integer.parseInt(header[1].trim());
+    }
+
+    private void response302Header(DataOutputStream dos, String url) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: http://localhost:8080" + url + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
