@@ -17,6 +17,7 @@ import util.IOUtils;
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
     private static final String INDEX = "/index.html";
+    private static final String LOGIN_FAILED = "/user/login_failed.html";
 
     private Socket connection;
 
@@ -62,6 +63,14 @@ public class RequestHandler extends Thread {
                 log.debug("user entity : {}", user.toString());
                 DataBase.addUser(user);
                 response302Header(dos, INDEX);
+            } else if("/user/login".equals(url)) {
+                String body = IOUtils.readData(br, contentLength);
+
+                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
+                if(!DataBase.existsByUserId(params.get("userId"))) {
+                    response302Header(dos, LOGIN_FAILED);
+                }
+
             } else {
                 byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
                 response200Header(dos, body.length);
