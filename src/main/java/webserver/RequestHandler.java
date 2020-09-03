@@ -62,20 +62,20 @@ public class RequestHandler extends Thread {
                         params.get("name"), params.get("email"));
                 log.debug("user entity : {}", user.toString());
                 DataBase.addUser(user);
-                response302Header(dos, INDEX);
+                response302Header(dos);
             } else if("/user/login".equals(url)) {
                 String body = IOUtils.readData(br, contentLength);
 
                 Map<String, String> params = HttpRequestUtils.parseQueryString(body);
                 User dbUser = DataBase.findUserById(params.get("userId"));
                 if(dbUser == null) {
-                    response302Header(dos, LOGIN_FAILED, "false");
+                    response302HeaderWithCookie(dos, LOGIN_FAILED, "false");
                 }
                 assert dbUser != null;
                 if(!dbUser.isMatchedPassword(params.get("password"))) {
-                    response302Header(dos, LOGIN_FAILED, "false");
+                    response302HeaderWithCookie(dos, LOGIN_FAILED, "false");
                 }
-                responseLoginSuccess200Header(dos, "true");
+                response302HeaderWithCookie(dos, INDEX, "true");
             } else {
                 byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
                 response200Header(dos, body.length);
@@ -86,10 +86,10 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private void responseLoginSuccess200Header(DataOutputStream dos, String success) {
+    private void response302HeaderWithCookie(DataOutputStream dos, String url, String success) {
         try {
-            dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("HTTP/1.1 302 OK \r\n");
+            dos.writeBytes("Location: http://localhost:8080" + url + "\r\n");
             dos.writeBytes("Set-Cookie: logined=" + success + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
@@ -97,26 +97,10 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private int getContentLength(String line){
-        String[] header = line.split(":");
-        return Integer.parseInt(header[1].trim());
-    }
-
-    private void response302Header(DataOutputStream dos, String url, String failed) {
+    private void response302Header(DataOutputStream dos) {
         try {
             dos.writeBytes("HTTP/1.1 302 Found \r\n");
-            dos.writeBytes("Location: http://localhost:8080" + url + "\r\n");
-            dos.writeBytes("Set-Cookie: logined=" + failed);
-            dos.writeBytes("\r\n");
-        } catch (IOException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    private void response302Header(DataOutputStream dos, String url) {
-        try {
-            dos.writeBytes("HTTP/1.1 302 Found \r\n");
-            dos.writeBytes("Location: http://localhost:8080" + url + "\r\n");
+            dos.writeBytes("Location: http://localhost:8080/index.html \r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -141,5 +125,10 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private int getContentLength(String line){
+        String[] header = line.split(":");
+        return Integer.parseInt(header[1].trim());
     }
 }
