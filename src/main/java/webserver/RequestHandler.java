@@ -58,6 +58,7 @@ public class RequestHandler extends Thread {
             }
 
             String url = RequestHeaderExtractor.getURL(token);
+            log.info("Url : {}", url);
             DataOutputStream dos = new DataOutputStream(out);
             if("/user/create".equals(url)){
                 String body = IOUtils.readData(br, contentLength);
@@ -101,9 +102,24 @@ public class RequestHandler extends Thread {
                 byte[] body = sb.toString().getBytes();
                 response200Header(dos, body.length);
                 responseBody(dos, body);
+            } else if(url.endsWith(".css")) {
+                byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+                responseResource200Header(dos, body.length);
+                responseBody(dos, body);
             } else {
                 responseResource(out, url);
             }
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void responseResource200Header(DataOutputStream dos, int lengthOfBodyContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("Content-Type: text/css;charset=utf-8\r\n");
+            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
+            dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
         }
