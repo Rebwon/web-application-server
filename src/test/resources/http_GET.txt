@@ -1,0 +1,5 @@
+GET /user/create?userId=rebwon&password=1234&name=rebwon&email=msolo021015@naver.com HTTP/1.1
+Host: localhost:8080
+Connection: keep-alive
+Cookie: logined=true
+Accept: */*

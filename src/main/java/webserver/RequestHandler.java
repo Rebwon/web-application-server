@@ -3,7 +3,6 @@ package webserver;
 import db.DataBase;
 import java.io.*;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Map;
@@ -11,14 +10,11 @@ import java.util.Map;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import util.RequestHeaderExtractor;
 import util.HttpRequestUtils;
-import util.IOUtils;
+import webserver.http.HttpRequest;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
-    private static final String INDEX = "/index.html";
-    private static final String LOGIN_FAILED = "/user/login_failed.html";
 
     private Socket connection;
 
@@ -31,58 +27,26 @@ public class RequestHandler extends Thread {
                 connection.getPort());
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
-            // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
-            BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-            String line = br.readLine();
-            if(line == null){
-                return;
-            }
-
-            log.debug("request line : {}", line);
-
-            String[] token = line.split(" ");
-            int contentLength = 0;
-            boolean logined = false;
-
-            while(!line.equals("")){
-                line = br.readLine();
-                log.debug("header: {}", line);
-
-                if(line.contains("Content-Length")){
-                    contentLength = getContentLength(line);
-                }
-
-                if(line.contains("Cookie")) {
-                    logined = isLogin(line);
-                }
-            }
-
-            String url = RequestHeaderExtractor.getURL(token);
-            log.info("Url : {}", url);
+            HttpRequest request = new HttpRequest(in);
+            String url = request.getUrl();
+            boolean logined = isLogin(request.getCookie());
             DataOutputStream dos = new DataOutputStream(out);
             if("/user/create".equals(url)){
-                String body = IOUtils.readData(br, contentLength);
-
-                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
-
-                User user = new User(params.get("userId"), params.get("password"),
-                        params.get("name"), params.get("email"));
+                User user = new User(request.getParameter("userId"), request.getParameter("password"),
+                    request.getParameter("name"), request.getParameter("email"));
                 log.debug("user entity : {}", user.toString());
                 DataBase.addUser(user);
                 response302Header(dos);
             } else if("/user/login".equals(url)) {
-                String body = IOUtils.readData(br, contentLength);
-
-                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
-                User dbUser = DataBase.findUserById(params.get("userId"));
+                User dbUser = DataBase.findUserById(request.getParameter("userId"));
                 if (dbUser == null) {
-                    response302HeaderWithCookie(dos, LOGIN_FAILED, "false");
+                    response302HeaderWithCookie(dos, "/user/login_failed.html", "false");
                 }
                 assert dbUser != null;
-                if (!dbUser.isMatchedPassword(params.get("password"))) {
-                    response302HeaderWithCookie(dos, LOGIN_FAILED, "false");
+                if (!dbUser.isMatchedPassword(request.getParameter("password"))) {
+                    response302HeaderWithCookie(dos, "/user/login_failed.html", "false");
                 }
-                response302HeaderWithCookie(dos, INDEX, "true");
+                response302HeaderWithCookie(dos, "/index.html", "true");
             } else if("/user/list".equals(url)) {
                 if(!logined) {
                     responseResource(out, "/user/login.html");
@@ -133,8 +97,7 @@ public class RequestHandler extends Thread {
     }
 
     private boolean isLogin(String request) {
-        String[] token = request.split(":");
-        Map<String, String> cookies = HttpRequestUtils.parseCookies(token[1].trim());
+        Map<String, String> cookies = HttpRequestUtils.parseCookies(request);
         String value = cookies.get("logined");
         if(value == null) {
             return false;
@@ -142,11 +105,11 @@ public class RequestHandler extends Thread {
         return Boolean.parseBoolean(value);
     }
 
-    private void response302HeaderWithCookie(DataOutputStream dos, String url, String success) {
+    private void response302HeaderWithCookie(DataOutputStream dos, String url, String cookie) {
         try {
             dos.writeBytes("HTTP/1.1 302 OK \r\n");
             dos.writeBytes("Location: " + url + "\r\n");
-            dos.writeBytes("Set-Cookie: logined=" + success + "\r\n");
+            dos.writeBytes("Set-Cookie: logined=" + cookie + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -181,10 +144,5 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
-    }
-
-    private int getContentLength(String line){
-        String[] header = line.split(":");
-        return Integer.parseInt(header[1].trim());
     }
 }
