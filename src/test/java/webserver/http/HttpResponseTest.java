@@ -18,7 +18,7 @@ public class HttpResponseTest {
   @Test
   public void responseRedirect() throws Exception {
     HttpResponse response = new HttpResponse(createOutputStream("http_Redirect.txt"));
-    response.sendRedirect("/index.html");
+    response.sendRedirect("/user/login_failed.html");
   }
 
   @Test
