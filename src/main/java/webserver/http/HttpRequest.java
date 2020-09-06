@@ -54,8 +54,8 @@ public class HttpRequest {
     }
   }
 
-  public String getMethod() {
-    return headers.get("Method");
+  public HttpMethod getMethod() {
+    return HttpMethod.find(headers.get("Method"));
   }
 
   public String getUrl() {
