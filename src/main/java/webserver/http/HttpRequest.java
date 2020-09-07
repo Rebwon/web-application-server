@@ -4,28 +4,37 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import util.HttpRequestUtils;
 import util.IOUtils;
 
 public class HttpRequest {
+  private static final Logger log = LoggerFactory.getLogger(HttpRequest.class);
   private final Map<String, String> headers = new HashMap<>();
+  private RequestLine requestLine;
 
-  public HttpRequest(InputStream in) throws IOException {
-    BufferedReader br = new BufferedReader(new InputStreamReader(in));
-    String requestLine = br.readLine();
-    extractGeneralHeader(requestLine);
-    while(!"".equals(requestLine)) {
-      requestLine = br.readLine();
-      if(requestLine == null) {
-        return;
+  public HttpRequest(InputStream in) {
+    try {
+      BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+      String line = br.readLine();
+      requestLine = new RequestLine(line);
+      while(!"".equals(line)) {
+        line = br.readLine();
+        if(line == null) {
+          return;
+        }
+        if("".equals(line)) {
+          extractBody(br, getContentLength());
+          return;
+        }
+        extractHeader(line);
       }
-      if("".equals(requestLine)) {
-        extractBody(br, getContentLength());
-        return;
-      }
-      extractHeader(requestLine);
+    } catch (IOException e) {
+      log.error(e.getMessage());
     }
   }
 
@@ -39,27 +48,12 @@ public class HttpRequest {
     headers.put(token[0], token[1].trim());
   }
 
-  private void extractGeneralHeader(String generalHeader) {
-    String[] token = generalHeader.split(" ");
-    headers.put("Method", token[0]);
-    String url = token[1];
-    if(url.contains("?")) {
-      int index = url.indexOf("?");
-      String requestUrl = url.substring(0, index);
-      String params = url.substring(index+1);
-      headers.put("Url", requestUrl);
-      headers.putAll(HttpRequestUtils.parseQueryString(params));
-    } else {
-      headers.put("Url", url);
-    }
-  }
-
   public HttpMethod getMethod() {
-    return HttpMethod.find(headers.get("Method"));
+    return HttpMethod.find(requestLine.getMethod());
   }
 
   public String getUrl() {
-    return headers.get("Url");
+    return requestLine.getPath();
   }
 
   public String getHeader(String name) {
@@ -67,7 +61,7 @@ public class HttpRequest {
   }
 
   public String getParameter(String name) {
-    return headers.get(name);
+    return headers.get(name) != null ? headers.get(name) : requestLine.getParameter(name);
   }
 
   public String getContentType() {
