@@ -28,12 +28,20 @@ public class RequestHandler extends Thread {
             Controller controller = RequestMapping.getController(request.getUrl());
 
             if(controller == null) {
-                response.forward(request.getUrl());
+                String path = getDefaultPath(request.getUrl());
+                response.forward(path);
             } else {
                 controller.handleRequest(request, response);
             }
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private String getDefaultPath(String url) {
+        if(url.equals("/")) {
+            return "/index.html";
+        }
+        return url;
     }
 }

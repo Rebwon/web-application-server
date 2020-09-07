@@ -28,9 +28,7 @@ public class UserController extends AbstractController {
       sb.append("</tr>");
     }
     sb.append("</table>");
-    byte[] body = sb.toString().getBytes();
-    response.response200Header(body.length);
-    response.responseBody(body);
+    response.forwardBody(sb.toString());
   }
 
   private boolean isLogin(String request) {

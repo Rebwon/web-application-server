@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,51 +20,41 @@ public class HttpResponse {
     out = new DataOutputStream(outputStream);
   }
 
-  public void forward(String url) throws IOException {
-    byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
-    if(url.endsWith(".css")) {
-      responseCssResource(body);
-    } else {
-      responseResource(body);
-    }
+  public void addHeader(String key, String value) {
+    headers.put(key, value);
   }
 
-  private void responseResource(byte[] body) {
-    response200Header(body.length);
-    responseBody(body);
-  }
-
-  private void responseCssResource(byte[] body) {
-    responseResource200Header(body.length);
-    responseBody(body);
-  }
-
-  private void responseResource200Header(int lengthOfBodyContent) {
+  public void forward(String url) {
     try {
-      out.writeBytes("HTTP/1.1 200 OK \r\n");
-      out.writeBytes("Content-Type: text/css;charset=utf-8\r\n");
-      out.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
-      out.writeBytes("\r\n");
+      byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+      if(url.endsWith(".css")) {
+        headers.put("Content-Type", "text/css");
+      } else if(url.endsWith(".js")) {
+        headers.put("Content-Type", "application/javascript");
+      } else {
+        headers.put("Content-Type", "text/html;charset=utf-8");
+      }
+      headers.put("Content-Length", body.length + "");
+      response200Header();
+      responseBody(body);
     } catch (IOException e) {
       log.error(e.getMessage());
     }
   }
 
-  public void response200Header(int lengthOfBodyContent) {
-    try {
-      out.writeBytes("HTTP/1.1 200 OK \r\n");
-      out.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
-      out.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
-      out.writeBytes("\r\n");
-    } catch (IOException e) {
-      log.error(e.getMessage());
-    }
+  public void forwardBody(String body) {
+    byte[] contents = body.getBytes();
+    headers.put("Content-Type", "text/html;charset=utf-8");
+    headers.put("Content-Length", contents.length + "");
+    response200Header();
+    responseBody(contents);
   }
 
-  public void responseBody(byte[] body) {
+  public void response200Header() {
     try {
-      out.write(body, 0, body.length);
-      out.flush();
+      out.writeBytes("HTTP/1.1 200 OK \r\n");
+      processHeaders();
+      out.writeBytes("\r\n");
     } catch (IOException e) {
       log.error(e.getMessage());
     }
@@ -72,17 +63,32 @@ public class HttpResponse {
   public void sendRedirect(String url) {
     try {
       out.writeBytes("HTTP/1.1 302 OK \r\n");
-      out.writeBytes("Location: " + url + "\r\n");
-      if(headers.get("Set-Cookie") != null) {
-        out.writeBytes("Set-Cookie: " + headers.get("Set-Cookie") + "\r\n");
-      }
+      processHeaders();
+      out.writeBytes("Location: " + url + " \r\n");
       out.writeBytes("\r\n");
     } catch (IOException e) {
       log.error(e.getMessage());
     }
   }
 
-  public void addHeader(String key, String value) {
-    headers.put(key, value);
+  private void processHeaders() {
+    try {
+      Set<String> keySet = headers.keySet();
+      for(String key : keySet) {
+        out.writeBytes(key + ": " + headers.get(key) + " \r\n");
+      }
+    } catch (IOException e) {
+      log.error(e.getMessage());
+    }
+  }
+
+  public void responseBody(byte[] body) {
+    try {
+      out.write(body, 0, body.length);
+      out.writeBytes("\r\n");
+      out.flush();
+    } catch (IOException e) {
+      log.error(e.getMessage());
+    }
   }
 }
