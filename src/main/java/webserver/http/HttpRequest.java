@@ -75,7 +75,11 @@ public class HttpRequest {
     return Integer.parseInt(headers.get("Content-Length"));
   }
 
-  public String getCookie() {
-    return headers.get("Cookie");
+  public HttpCookie getCookies() {
+    return new HttpCookie(getHeader("Cookie"));
+  }
+
+  public HttpSession getSession() {
+    return HttpSessions.getSession(getCookies().getCookie("JSESSIONID"));
   }
 }

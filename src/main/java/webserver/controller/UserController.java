@@ -5,15 +5,16 @@ import java.util.Collection;
 import java.util.Map;
 import model.User;
 import util.HttpRequestUtils;
+import webserver.http.HttpCookie;
 import webserver.http.HttpRequest;
 import webserver.http.HttpResponse;
+import webserver.http.HttpSession;
 
 public class UserController extends AbstractController {
 
   @Override
   protected void doGet(HttpRequest request, HttpResponse response) {
-    boolean logined = isLogin(request.getCookie());
-    if(!logined) {
+    if(!isLogin(request.getSession())) {
       response.sendRedirect("/user/login.html");
       return;
     }
@@ -31,12 +32,11 @@ public class UserController extends AbstractController {
     response.forwardBody(sb.toString());
   }
 
-  private boolean isLogin(String request) {
-    Map<String, String> cookies = HttpRequestUtils.parseCookies(request);
-    String value = cookies.get("logined");
-    if(value == null) {
+  private boolean isLogin(HttpSession session) {
+    Object user = session.getAttribute("user");
+    if(user == null) {
       return false;
     }
-    return Boolean.parseBoolean(value);
+    return true;
   }
 }

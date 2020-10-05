@@ -20,7 +20,6 @@ public class HttpRequestTest {
     assertEquals("/user/create", httpRequest.getUrl());
     assertEquals("keep-alive", httpRequest.getHeader("Connection"));
     assertEquals("rebwon", httpRequest.getParameter("userId"));
-    assertEquals("logined=true", httpRequest.getCookie());
   }
 
   @Test

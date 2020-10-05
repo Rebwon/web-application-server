@@ -4,6 +4,7 @@ import db.DataBase;
 import model.User;
 import webserver.http.HttpRequest;
 import webserver.http.HttpResponse;
+import webserver.http.HttpSession;
 
 public class LoginController extends AbstractController {
 
@@ -14,7 +15,8 @@ public class LoginController extends AbstractController {
       if (!dbUser.isMatchedPassword(request.getParameter("password"))) {
         response.sendRedirect("/user/login_failed.html");
       } else {
-        response.addHeader("Set-Cookie", "logined=true; Path=/");
+        HttpSession session = request.getSession();
+        session.setAttribute("user", dbUser);
         response.sendRedirect("/index.html");
       }
     } else {
